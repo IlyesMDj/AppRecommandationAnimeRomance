@@ -72,7 +72,40 @@ def recommander_par_deja_vus(watched, matrice, df):
     recommandations = resultats[~resultats['Name'].isin(watched)]
         
     return recommandations
+
+def recommandation_hybride(wishlist, watched, matrice, df):
+    # Récupère les indices des animes dans la wishlist et ceux déjà vus
+    indice_wishlist = df[df['Name'].isin(wishlist)].index
+    indice_watched = df[df['Name'].isin(watched)].index
     
+    # Si les deux listes sont vides ou aucun anime n'est trouvé, retourne une liste vide
+    if len(indice_wishlist) == 0 or len(indice_watched) == 0:
+        return pd.DataFrame()
+    # Calcule le vecteur combiné avec pondération
+    vecteur_final = np.zeros((matrice.shape[1]))
+    # On ajoute le vecteur de la wishlist avec un poids de 3
+    if len(indice_wishlist) > 0: 
+        vec_wish= matrice[indice_wishlist].sum(axis=0)
+        vec_wish = np.asarray(vec_wish).flatten()
+        vecteur_final += vec_wish * 3.0 
+    # On ajoute le vecteur des animes déjà vus avec un poids de 1    
+    if len(indice_watched) > 0:
+        vec_watch = matrice[indice_watched].sum(axis=0)
+        vec_watch = np.asarray(vec_watch).flatten()
+        vecteur_final += vec_wish * 3.0 
+    # On reshape le vecteur final pour qu'il soit compatible avec linear_kernel    
+    vecteur_final = vecteur_final.reshape(1, -1)
+    # Calcule les similarités cosinus entre le vecteur combiné et tous les autres animes
+    cosine_similarities = linear_kernel(vecteur_final, matrice).flatten()
+    # Récupère les indices des animes les plus similaires
+    similar_indices = cosine_similarities.argsort()[::-1]
+    # Récupère les détails des animes similaires
+    resultats = df.iloc[similar_indices]
+    # Exclut les animes déjà dans la wishlist ou déjà vus
+    deja_consultes = wishlist + watched
+    recommandations = resultats[~resultats['Name'].isin(deja_consultes)]
+    return recommandations
+        
 def recommander_par_top_score(df, n=1):
     # 1. On garde uniquement les lignes où le Score N'EST PAS 'Unknown'
     df_clean = df[df['Score'] != 'Unknown'].copy()
